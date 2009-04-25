@@ -1,0 +1,63 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Install file for database schema
+ */
+
+/**
+ * Implementation of hook_install().
+ */
+function simpleblocks_install() {
+  drupal_install_schema('simpleblocks');
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function simpleblocks_schema() {
+  $schema = array();
+
+  $schema['simpleblocks_roles'] = array(
+    'description' => 'Sets up access permissions for configuring {blocks} based on user roles',
+    'fields' => array(
+      'module' => array(
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'description' => "The block's origin module, from {blocks}.module.",
+      ),
+      'delta'  => array(
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'description' => "The block's unique delta within module, from {blocks}.delta.",
+      ),
+      'rid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => "The user's role ID from {users_roles}.rid.",
+      ),
+    ),
+    'primary key' => array(
+      'module',
+      'delta',
+      'rid'
+    ),
+    'indexes' => array(
+      'rid' => array('rid'),
+    ),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function simpleblocks_uninstall() {
+  drupal_uninstall_schema('simpleblocks');
+  //variable_del('simpleblocks_setting');
+}
