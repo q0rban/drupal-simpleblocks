@@ -6,9 +6,9 @@
  * Simplifies block administration per role.
  */
 
-define('SIMPLEBLOCKS_DISPLAY_MINIMAL', 0);
-define('SIMPLEBLOCKS_DISPLAY_SIMPLE', 1);
-define('SIMPLEBLOCKS_DISPLAY_FULL', 2);
+define('SIMPLEBLOCKS_DISPLAY_MINIMAL', 1);
+define('SIMPLEBLOCKS_DISPLAY_SIMPLE', 2);
+define('SIMPLEBLOCKS_DISPLAY_FULL', 3);
 
 /**
  * Implementation of hook_menu().
@@ -34,6 +34,8 @@ function simpleblocks_menu() {
     'file' => 'simpleblocks.admin.inc',
   );
 
+  
+
   return $items;
 }
 
@@ -41,7 +43,26 @@ function simpleblocks_menu() {
  * Implementation of hook_perm().
  */
 function simpleblocks_perm() {
-  return array('administer simpleblocks settings', 'configure simple blocks', 'configure minimal blocks', 'configure full blocks');
+  return array('administer simpleblocks settings', 'configure blocks', 'configure minimal blocks', 'configure full blocks');
+}
+
+/**
+ * Check if a user can access the simpleblocks config.
+ */
+function simpleblocks_user_access($block = NULL)) {
+  if (empty($block) {
+    $displays = array(
+      'configure full blocks' => SIMPLEBLOCKS_DISPLAY_FULL,
+      'configure simple blocks' => SIMPLEBLOCKS_DISPLAY_SIMPLE,
+      'configure minimal blocks' => SIMPLEBLOCKS_DISPLAY_MINIMAL,  
+    );
+    foreach ($displays as $perm => $display) {
+      if (user_access($perm)) {
+        return $display;
+      }
+    }
+    return FALSE;
+  }
 }
 
 /**
@@ -66,17 +87,19 @@ function simpleblocks_theme() {
  */
 function simpleblocks_preprocess_block($vars, $hook) {
   $block = $vars['block'];
-  if (user_access('configure simple blocks') || user_access('configure minimal blocks') || user_access('configure full blocks')) {
+  if (simpleblocks_user_access($block)) {
+    global $user;
+
     if (theme_get_setting('zen_block_editing') && user_access('administer blocks')) {
       // Unset the zen edit links
       unset($vars['edit_links_array'], $vars['edit_links']);
     }
-      $block->content .= _simpleblocks_block_edit_links($block);
+    $block->content .= _simpleblocks_block_edit_links($block);
   }
 }
 
 /**
- * 
+ * Helper function to create the links that are added to the appropriate block.
  */
 function _simpleblocks_block_edit_links($block) {
   return l(t('edit'), 'admin/build/block/configure/' . $block->module . '/' . $block->delta);
@@ -85,13 +108,29 @@ function _simpleblocks_block_edit_links($block) {
 /**
  * Loads all roles per block (module/delta).
  */
-function simpleblocks_roles_load() {
+function simpleblocks_roles_load_all() {
   static $roles = array();
 
   if (empty($roles)) {
     $result = db_query("SELECT * FROM {simpleblocks_roles}");
     while($role = db_fetch_object($result)) {
       $roles[$role->module .'_'. $role->delta][] = $role->rid;
+    }
+  }
+
+  return $roles;
+}
+
+/**
+ * Loads all roles per block (module/delta).
+ */
+function simpleblocks_roles_load($module, $delta) {
+  static $roles = array();
+
+  if (empty($roles)) {
+    $result = db_query("SELECT * FROM {simpleblocks_roles} WHERE module = '%s' AND delta = '%s'", $module, $delta);
+    while($role = db_fetch_object($result)) {
+      $roles[] = $role->rid;
     }
   }
 

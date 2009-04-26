@@ -14,7 +14,7 @@ function simpleblocks_permissions_form() {
 
   $roles = user_roles();
   $blocks = _block_rehash();
-  $block_roles = simpleblocks_roles_load();
+  $block_roles = simpleblocks_roles_load_all();
 
   $form['perms']['#tree'] = TRUE;
 
