@@ -42,7 +42,6 @@ function _simpleblocks_form_block_admin_configure_alter_minimal(&$form, &$form_s
  */
 function theme_simpleblocks_block_admin_configure(&$form) {
   $form['block_settings']['title']['#prefix'] = drupal_render($form['simpleblocks']['title_enabled']);
-  $output = drupal_render($form['simpleblocks']['status']);
   $output .= drupal_render($form);
   return $output;
 }

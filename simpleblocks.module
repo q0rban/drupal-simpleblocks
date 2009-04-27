@@ -112,12 +112,6 @@ function simpleblocks_form_block_admin_configure_alter(&$form, &$form_state) {
 
     // Add some basics to the form
     $form['simpleblocks']['#tree'] = TRUE;
-    $form['simpleblocks']['status'] = array(
-      '#type' => 'checkbox',
-      '#title' => t('Enable'),
-      '#description' => t('Uncheck to disable this @block completely.', array('@block' => variable_get('simpleblocks_block_name', 'Block'))),
-      '#default_value' => TRUE,
-    );
     $form['simpleblocks']['display'] = array(
       '#type' => 'hidden',
       '#value' => $display,
