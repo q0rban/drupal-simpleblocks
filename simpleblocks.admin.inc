@@ -37,7 +37,7 @@ function simpleblocks_permissions_form() {
     foreach ($roles as $rid => $role) {
       $form['perms'][$key][$rid] = array(
         '#type' => 'checkbox',
-        '#default_value' => in_array($rid, (array) $block_roles[$key]),
+        '#default_value' => !in_array($rid, (array) $block_roles[$key]),
       );
     }
   }
@@ -68,7 +68,7 @@ function simpleblocks_permissions_form_submit($form, &$form_state) {
     db_query("DELETE FROM {simpleblocks_roles} WHERE module = '%s' AND delta = '%s'", $module, $delta);
     foreach ($roles as $rid => $value) {
       // If the permission is set, save it into the table.
-      if ($value) {
+      if (!$value) {
         db_query("INSERT INTO {simpleblocks_roles} (module, delta, rid) VALUES ('%s', '%s', %d)", $module, $delta, $rid);
       }
     }

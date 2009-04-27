@@ -20,7 +20,7 @@ function simpleblocks_schema() {
   $schema = array();
 
   $schema['simpleblocks_roles'] = array(
-    'description' => 'Sets up access permissions for configuring {blocks} based on user roles',
+    'description' => 'Sets up access permissions for configuring {blocks} based on user roles. Any role saved for a particular block is *denied* access to that block.',
     'fields' => array(
       'module' => array(
         'type' => 'varchar',

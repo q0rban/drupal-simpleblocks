@@ -6,9 +6,9 @@
  * Simplifies block administration per role.
  */
 
-define('SIMPLEBLOCKS_DISPLAY_MINIMAL', 1);
-define('SIMPLEBLOCKS_DISPLAY_SIMPLE', 2);
-define('SIMPLEBLOCKS_DISPLAY_FULL', 3);
+define('SIMPLEBLOCKS_DISPLAY_MINIMAL', 'minimal');
+define('SIMPLEBLOCKS_DISPLAY_SIMPLE', 'simple');
+define('SIMPLEBLOCKS_DISPLAY_FULL', 'full');
 
 /**
  * Implementation of hook_menu().
@@ -34,8 +34,6 @@ function simpleblocks_menu() {
     'file' => 'simpleblocks.admin.inc',
   );
 
-  
-
   return $items;
 }
 
@@ -43,26 +41,7 @@ function simpleblocks_menu() {
  * Implementation of hook_perm().
  */
 function simpleblocks_perm() {
-  return array('administer simpleblocks settings', 'configure blocks', 'configure minimal blocks', 'configure full blocks');
-}
-
-/**
- * Check if a user can access the simpleblocks config.
- */
-function simpleblocks_user_access($block = NULL)) {
-  if (empty($block) {
-    $displays = array(
-      'configure full blocks' => SIMPLEBLOCKS_DISPLAY_FULL,
-      'configure simple blocks' => SIMPLEBLOCKS_DISPLAY_SIMPLE,
-      'configure minimal blocks' => SIMPLEBLOCKS_DISPLAY_MINIMAL,  
-    );
-    foreach ($displays as $perm => $display) {
-      if (user_access($perm)) {
-        return $display;
-      }
-    }
-    return FALSE;
-  }
+  return array('administer simpleblocks settings', 'configure minimal blocks', 'configure simple blocks', 'configure full blocks');
 }
 
 /**
@@ -74,7 +53,28 @@ function simpleblocks_theme() {
       'arguments' => array('form' => NULL),
       'file' => 'simpleblocks.admin.inc',
     ),
+    'simpleblocks_block_admin_configure' => array(
+      'arguments' => array('form' => NULL),
+      'file' => 'simpleblocks_form_alter.inc',
+    ),
   );
+}
+
+/**
+ * Implementation of hook_theme_registry_alter().
+ *
+ * Make simpleblocks' block preprocess function run *after* everything else's,
+ * so that we can alter zen's links.  This method was nicked from jquery_update.
+ */
+function simpleblocks_theme_registry_alter(&$theme_registry) {
+  if (isset($theme_registry['block'])) {
+    // If simpleblocks' preprocess function is there already, remove it.
+    if ($key = array_search('simpleblocks_preprocess_block', $theme_registry['block']['preprocess functions'])) {
+      unset($theme_registry['block']['preprocess functions'][$key]);
+    }
+    // Now tack it on at the end so it runs after everything else.
+    $theme_registry['block']['preprocess functions'][] = 'simpleblocks_preprocess_block';
+  } 
 }
 
 /**
@@ -87,14 +87,10 @@ function simpleblocks_theme() {
  */
 function simpleblocks_preprocess_block($vars, $hook) {
   $block = $vars['block'];
-  if (simpleblocks_user_access($block)) {
-    global $user;
-
+  if (simpleblocks_user_access($block->module, $block->delta)) {
     if (theme_get_setting('zen_block_editing') && user_access('administer blocks')) {
-      // Unset the zen edit links
-      unset($vars['edit_links_array'], $vars['edit_links']);
+      
     }
-    $block->content .= _simpleblocks_block_edit_links($block);
   }
 }
 
@@ -103,6 +99,73 @@ function simpleblocks_preprocess_block($vars, $hook) {
  */
 function _simpleblocks_block_edit_links($block) {
   return l(t('edit'), 'admin/build/block/configure/' . $block->module . '/' . $block->delta);
+}
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ */
+function simpleblocks_form_block_admin_configure_alter(&$form, &$form_state) {
+  if ($display = simpleblocks_user_access()) {
+    $path = drupal_get_path('module', 'simpleblocks');
+    drupal_add_js($path .'/simpleblocks.js');
+    drupal_add_css($path .'/simpleblocks.css');
+
+    // Add some basics to the form
+    $form['simpleblocks']['#tree'] = TRUE;
+    $form['simpleblocks']['status'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Enable'),
+      '#description' => t('Uncheck to disable this @block completely.', array('@block' => variable_get('simpleblocks_block_name', 'Block'))),
+      '#default_value' => TRUE,
+    );
+    $form['simpleblocks']['display'] = array(
+      '#type' => 'hidden',
+      '#value' => $display,
+    );
+
+    // Call our display specific form alter function.
+    module_load_include('inc', 'simpleblocks', 'simpleblocks_form_alter');
+    $function = '_simpleblocks_form_block_admin_configure_alter_minimal'; //'. $display;
+    $function($form, $form_state);
+
+    // Add our theme function to this form so we can do some custom stuff.
+    $form['#theme'][] = 'simpleblocks_block_admin_configure';
+  }
+}
+
+/**
+ * Check if a user can access the simpleblocks config.
+ */
+function simpleblocks_user_access($module = NULL, $delta = 0) {
+  // Disabled per block access for now, until I figure out how to handle 
+  // when a user has multiple roles, one of which has access and the other 
+  // which doesn't.
+  /*  if (!is_null($module)) {
+    // Load in our roles and check to make sure our user isn't blocked.
+    if ($roles = simpleblocks_load_roles($module, $delta)) {
+      global $user;
+      foreach($roles as $rid) {
+        if (in_array($rid, $user->roles)) {
+          return FALSE;
+        }
+      }
+    } */
+
+    // We set these in descending order of access level.  We want the user to get the
+    // highest level of access they are permitted.
+    $displays = array(
+      'configure full blocks' => SIMPLEBLOCKS_DISPLAY_FULL,
+      'configure simple blocks' => SIMPLEBLOCKS_DISPLAY_SIMPLE,
+      'configure minimal blocks' => SIMPLEBLOCKS_DISPLAY_MINIMAL,  
+    );
+    foreach ($displays as $perm => $display) {
+      if (user_access($perm)) {
+        return $display;
+      }
+    }
+  // }
+  // If we've gotten this far, user doesn't have access.
+  return FALSE;
 }
 
 /**
@@ -122,7 +185,8 @@ function simpleblocks_roles_load_all() {
 }
 
 /**
- * Loads all roles per block (module/delta).
+ * Loads all roles that should NOT be allowed access for a 
+ * particular block (module/delta).
  */
 function simpleblocks_roles_load($module, $delta) {
   static $roles = array();
