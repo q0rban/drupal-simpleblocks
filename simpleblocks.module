@@ -6,9 +6,23 @@
  * Simplifies block administration per role.
  */
 
+/**
+ * Define some constant display types.
+ */
 define('SIMPLEBLOCKS_DISPLAY_MINIMAL', 'minimal');
 define('SIMPLEBLOCKS_DISPLAY_SIMPLE', 'simple');
 define('SIMPLEBLOCKS_DISPLAY_FULL', 'full');
+
+/**
+ * Implementation of hook_init().
+ */
+function simpleblocks_init() {
+  if (simpleblocks_user_access()) {
+    $path = drupal_get_path('module', 'simpleblocks');
+    drupal_add_js($path .'/simpleblocks.js');
+    drupal_add_css($path .'/simpleblocks.css');
+  }
+}
 
 /**
  * Implementation of hook_menu().
@@ -89,16 +103,19 @@ function simpleblocks_preprocess_block($vars, $hook) {
   $block = $vars['block'];
   if (simpleblocks_user_access($block->module, $block->delta)) {
     if (theme_get_setting('zen_block_editing') && user_access('administer blocks')) {
-      
+      $edit_links = array();
+
+      foreach($vars['edit_links_array'] as $href => $edit_link) {
+        $edit_link['href'] = 'highslide-ajax/'. $edit_link['href'];
+        $edit_link['options']['attributes']['class'] = 'highslide-ajax-link';
+        $edit_link['options']['query'] = drupal_get_destination();
+        $edit_link['options']['html'] = TRUE;
+        $edit_links[] = l('<span>'. $edit_link['title'] .'</span>', $edit_link['href'], $edit_link['options']);
+      }
+
+      $vars['edit_links'] .= '<div class="edit">'. implode(' ', $edit_links) .'</div>';
     }
   }
-}
-
-/**
- * Helper function to create the links that are added to the appropriate block.
- */
-function _simpleblocks_block_edit_links($block) {
-  return l(t('edit'), 'admin/build/block/configure/' . $block->module . '/' . $block->delta);
 }
 
 /**
@@ -106,10 +123,6 @@ function _simpleblocks_block_edit_links($block) {
  */
 function simpleblocks_form_block_admin_configure_alter(&$form, &$form_state) {
   if ($display = simpleblocks_user_access()) {
-    $path = drupal_get_path('module', 'simpleblocks');
-    drupal_add_js($path .'/simpleblocks.js');
-    drupal_add_css($path .'/simpleblocks.css');
-
     // Add some basics to the form
     $form['simpleblocks']['#tree'] = TRUE;
     $form['simpleblocks']['display'] = array(
